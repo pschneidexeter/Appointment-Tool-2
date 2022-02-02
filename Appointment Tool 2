@@ -1,16 +1,33 @@
 @functions{
 
-    protected EngineRecord _user = null;    
+    protected EngineRecord _user = null;
     
     public override void InitializePage() {
         base.InitializePage();
+        string myid = null;
+        PageData["Access"] = "ReadOnly";
         if (Request.QueryString["logout"] == "logout") {
             BRT.Logout();    
             Response.Redirect("/at2");
         }
         else
         {
-            _user = BRT.UserRecord(viewId:"AppointmentToolPeople", fields: new[] {"FirstName","LastName","Username"});                   
+            // This part is copied from the Appointment Tool 1. It looks to see if the appointment tool person can access it
+            _user = BRT.UserRecord(viewId:"AppointmentToolPeople", fields: new[] {"FirstName","SpecialAccess"},condition:"<InList FieldId=\"SpecialAccess.Id\"><Match Value=\"34402\"/><Match Value=\"34519\"/><Match Value=\"37868\"/></InList>");
+            if ( _user != null){
+                PageData["Access"] = "ReadOnly"; // They can't make edits
+                PageData["Name"] =  _user.GetString("FirstName");
+                if(!_user.IsDBNull("SpecialAccess") && _user.GetCategory("SpecialAccess").Contains("Appointment Making Tool - Full") ){
+                    PageData["Access"] = "Full";
+                }
+                if(!_user.IsDBNull("SpecialAccess") && _user.GetCategory("SpecialAccess").Contains("Appointment Making Tool - Edit, No Bulk Update") ){
+                    PageData["Access"] = "Edit";
+                }
+                PageData["MyId"] = _user.Id; 
+                myid = _user.Id.ToString();
+            }
+            
+            
         }   
     }
 
@@ -35,8 +52,7 @@
       <script src="https://unpkg.com/hyperscript.org@("@")0.9.4"></script>
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
       
-      <script src="https://unpkg.com/@("@")popperjs/core@("@")2"></script>      
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@("@")5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@("@")5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
       
       <title>@Title</title>
       
@@ -117,6 +133,30 @@
                 font-weight:normal !important;
             }
             
+            #datatable_filter
+            {
+                position:absolute;
+                left:10px;
+                top:-34px;
+                display:inline;
+            }
+            #datatable_filter label input::before
+            {
+                display:none;
+            }
+            .dt-buttons
+            {
+                position:absolute;
+                top:-34px;
+                right:10px;
+            }
+            @if(PageData["Access"]=="ReadOnly"){
+                @BRT.Raw(".editlink{display:none;")
+            }
+            
+        
+    
+            
             
         </style>
 
@@ -144,49 +184,208 @@
             </div>
         </div>
     } else {
-<div class="p-2 bg-white border-bottom text-center sticky-top w-100 overflow-hidden">
-    <a href="/at2" class="text-decoration-none text-dark float-start">
-        <img src="https://brt.brtapp.com/files/central_assets/cross_flame.png?height=24"/>
-    </a>
-    
-    
-    <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=noretired")" hx-target="#renderdiv" hx-indicator="#indicator">People main</a>
-    <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">w/retired</a>
-    
-    <a class="ms-2 text-dark text-decoration-none bg-danger bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=needsmove")" hx-target="#renderdiv" hx-indicator="#indicator">Move by status</a>
-    <a class="ms-2 text-dark text-decoration-none bg-danger bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedunresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Affected</a>
-    
-    <a class="ms-2 text-dark text-decoration-none bg-success bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=resolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved by status</a>
-    <a class="ms-2 text-dark text-decoration-none bg-success bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved affected</a>
-    
-    
-    <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=churcheswithstatus")" hx-target="#renderdiv" hx-indicator="#indicator">Churches</a>
-    
-    <a class="ms-2 ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=currentappointments")" hx-target="#renderdiv" hx-indicator="#indicator">Current appointments</a>
-    <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=pendingsimple")" hx-target="#renderdiv" hx-indicator="#indicator">Projected appointments</a>
+<div class="d-flex flex-column vh-100 w-100">
+    <div class="p-2 bg-white border-bottom text-center sticky-top">
+        <a href="/at2" class="text-decoration-none text-dark float-start text-dark">
+            <img src="https://brt.brtapp.com/files/central_assets/cross_flame.png?height=24"/> <span>AT home</span>
+        </a>
         
-    
-    <a class="text-muted text-decoration-none float-end" href="/at2?logout=logout" id="logout"><i class="fs-5 bi bi-door-open-fill"></i></a>
-</div>
         
+        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=noretired")" hx-target="#renderdiv" hx-indicator="#indicator">People main</a>
+        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">w/retired</a>
+        
+        <a class="ms-2 text-dark text-decoration-none bg-danger bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=needsmove")" hx-target="#renderdiv" hx-indicator="#indicator">Move by status</a>
+        <a class="ms-2 text-dark text-decoration-none bg-danger bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedunresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Affected</a>
+        
+        <a class="ms-2 text-dark text-decoration-none bg-success bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=resolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved by status</a>
+        <a class="ms-2 text-dark text-decoration-none bg-success bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved affected</a>
+        
+        
+        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=churcheswithstatus")" hx-target="#renderdiv" hx-indicator="#indicator">Churches</a>
+        
+        <a class="ms-2 ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=currentappointments")" hx-target="#renderdiv" hx-indicator="#indicator">Current appointments</a>
+        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=pendingsimple")" hx-target="#renderdiv" hx-indicator="#indicator">Projected appointments</a>
             
-<div class="linear-activity htmx-indicator" id="indicator">
-    <div class="indeterminate" ></div>
-</div>
-<div id="renderdiv"></div>
         
+        <a class="text-muted text-decoration-none float-end" href="/at2?logout=logout" id="logout"><i class="fs-5 bi bi-door-open-fill"></i></a>
+    </div>
+    
+    <div class="linear-activity htmx-indicator" id="indicator">
+        <div class="indeterminate" ></div>
+    </div>
+    <div class="flex-grow-1 bg-light overflow-auto">
+        <div id="renderdiv">
+            <div class="container">
+                
+                <div class="row row-cols-1 row-cols-md-3 justify-content-center text-center g-2 mt-1">
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter = EngineAdapter.Create("Contacts","AppointmentToolPeople");
+                                adapter.AddResultFields(new[] {"FirstName"});
+                                adapter.AddSavedFilter("AllPeopleNoRetired");
+                                EngineRecordList item =  adapter.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-primary text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=noretired")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item.Count.ToString("N0")</div>
+                                <div class="fw-bold">People <small>(your main list)</small></div>
+                            </a>
+                            <div class="text-muted">NOT including retired</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter2 = EngineAdapter.Create("Contacts","AppointmentToolPeople");
+                                adapter2.AddResultFields(new[] {"FirstName"});
+                                adapter2.AddSavedFilter("AllPeople");
+                                EngineRecordList item2 =  adapter2.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-primary text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item2.Count.ToString("N0")</div>
+                                <div class="fw-bold">People with retired</div>
+                            </a>
+                            <div class="text-muted">INCLUDING retired</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter3 = EngineAdapter.Create("Contacts","AppointmentToolPeople");
+                                adapter3.AddResultFields(new[] {"FirstName"});
+                                adapter3.AddSavedFilter("MoveNeedsMove");
+                                EngineRecordList item3 =  adapter3.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=needsmove")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item3.Count.ToString("N0")</div>
+                                <div class="fw-bold">People to move by status</div>
+                            </a>
+                            <div class="text-muted">Based on move status</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row row-cols-1 row-cols-md-3 justify-content-center text-center g-2 mt-1">
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter4 = EngineAdapter.Create("Contacts","AppointmentToolPeople");
+                                adapter4.AddResultFields(new[] {"FirstName"});
+                                adapter4.AddSavedFilter("UnresolvedAffected");
+                                EngineRecordList item4 =  adapter4.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedunresolved")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item4.Count.ToString("N0")</div>
+                                <div class="fw-bold">People to move by affected</div>
+                            </a>
+                            <div class="text-muted">Incoming appointments affect them</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter5 = EngineAdapter.Create("Contacts","AppointmentToolPeople");
+                                adapter5.AddResultFields(new[] {"FirstName"});
+                                adapter5.AddSavedFilter("MoveBeenMoved");
+                                EngineRecordList item5 =  adapter5.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=resolved")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item5.Count.ToString("N0")</div>
+                                <div class="fw-bold">People resolved from status</div>
+                            </a>
+                            <div class="text-muted">Status-moved but now resolved</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter6 = EngineAdapter.Create("Contacts","AppointmentToolPeople");
+                                adapter6.AddResultFields(new[] {"FirstName"});
+                                adapter6.AddSavedFilter("ResolvedAffected");
+                                EngineRecordList item6 =  adapter6.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedresolved")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item6.Count.ToString("N0")</div>
+                                <div class="fw-bold">People resolved from affected</div>
+                            </a>
+                            <div class="text-muted">Affected but resolved</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row row-cols-1 row-cols-md-3 justify-content-center text-center g-2 mt-1">
+                    <div class="col">
+                        <div class="card card-body">
+                             @{
+                                var adapter7 = EngineAdapter.Create("Contacts","AppointmentToolChurches");
+                                adapter7.AddResultFields(new[] {"Name"});
+                                adapter7.AddSavedFilter("ExcludeMerged");
+                                adapter7.AddSavedFilter("ExcludeClosed");
+                                EngineRecordList item7 =  adapter7.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-primary text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=churcheswithstatus")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item7.Count.ToString("N0")</div>
+                                <div class="fw-bold">Churches</div>
+                            </a>
+                            <div class="text-muted">Not merged or closed</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter8 = EngineAdapter.Create("Content","Appointments");
+                                adapter8.AddResultFields(new[] {"StartDate"});
+                                adapter8.AddCondition("<IsNull Not=\"true\" Scope=\"Both\" FieldId=\"People.Id\"/>");
+                                adapter8.AddSavedFilter("CurrentAppointmentsChDistExt");
+                                EngineRecordList item8 =  adapter8.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 ms-0 text-primary text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=currentappointments")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item8.Count.ToString("N0")</div>
+                                <div class="fw-bold">Current appointments</div>
+                            </a>
+                            <div class="text-muted">For all your people</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card card-body">
+                            @{
+                                var adapter9 = EngineAdapter.Create("Content","AppointmentToolPendingAppointments");
+                                adapter9.AddResultFields(new[] {"StartDate"});
+                                EngineRecordList item9 =  adapter9.GetList(1,5000,true);
+                            }
+                            <a class="ms-2 text-primary text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=pendingsimple")" hx-target="#renderdiv" hx-indicator="#indicator">
+                                <div class="fs-2 fw-bold">@item9.Count.ToString("N0")</div>
+                                <div class="fw-bold">Projected appointments</div>
+                            </a>
+                            <div class="text-muted">Your provisional appointments</div>
+                        </div>
+                    </div>
+                    
+                </div>
+                <div class="row justify-content-center mt-3">
+                    <div class="col-6">
+                        <div class="card card-body text-center">
+                            
+                            <h4>Instructions</h4>
+                            
+                            <div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/672031222?h=4dff03bf7c&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Instructions 1/31/2022"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
     
         
         
-        
-        <div class="offcanvas offcanvas-end w-50" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="snapshotmodal" aria-labelledby="snapshotmodal">
-          <div class="offcanvas-body">
-              <div class="linear-activity htmx-indicator" id="modalindicator">
-                <div class="indeterminate" ></div>
-            </div>
-            <div id="snapbody"></div>
-          </div>
-        </div>
+@*This is the offcanvas Bootstrap components. It's articulated here and then called from everywhere*@        
+<div class="offcanvas offcanvas-end w-50" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="snapshotmodal" aria-labelledby="snapshotmodal">
+  <div class="offcanvas-body">
+      <div class="linear-activity htmx-indicator" id="modalindicator">
+        <div class="indeterminate" ></div>
+    </div>
+    <div id="snapbody"></div>
+  </div>
+</div>
     }        
       
    </body>
