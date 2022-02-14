@@ -26,8 +26,6 @@
                 PageData["MyId"] = _user.Id; 
                 myid = _user.Id.ToString();
             }
-            
-            
         }   
     }
 
@@ -50,13 +48,14 @@
         <script type="text/javascript" src="//cdn.datatables.net/buttons/1.6.2/js/buttons.print.min.js"></script>
       <script src="https://unpkg.com/htmx.org@("@")1.6.1"></script>
       <script src="https://unpkg.com/hyperscript.org@("@")0.9.4"></script>
+      <script src="https://brt-email.brtapp.com/files/central_assets/iframeresizer.min.js"></script>
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
       
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@("@")5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
       
       <title>@Title</title>
       
-      <style type="text/css">
+      <style type="text/css" media="screen">
             
             .dt-button
             {
@@ -150,14 +149,32 @@
                 top:-34px;
                 right:10px;
             }
+            
+            table#datatable td{
+                white-space: nowrap;
+            }
+            
+            .showcap
+            {
+                max-height:300px;
+                overflow-y:scroll;
+            }
+            
             @if(PageData["Access"]=="ReadOnly"){
                 @BRT.Raw(".editlink{display:none;")
             }
             
-        
-    
-            
-            
+        </style>
+        <style type="text/css" media="print">
+            .showcap
+            {
+                max-height:none;
+                overflow-y:auto;
+            }
+            .noprint
+            {
+                display:none;
+            }
         </style>
 
    </head>
@@ -185,27 +202,31 @@
         </div>
     } else {
 <div class="d-flex flex-column vh-100 w-100">
-    <div class="p-2 bg-white border-bottom text-center sticky-top">
+    <div class="p-2 pt-2 bg-white border-bottom text-center sticky-top" id="mainnav">
         <a href="/at2" class="text-decoration-none text-dark float-start text-dark">
-            <img src="https://brt.brtapp.com/files/central_assets/cross_flame.png?height=24"/> <span>AT home</span>
+            <span class="align-middle"><img src="https://brt.brtapp.com/files/central_assets/cross_flame.png?height=24" class="align-middle"/> <span class="align-middle">AT home</span></span>
         </a>
         
-        
-        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=noretired")" hx-target="#renderdiv" hx-indicator="#indicator">People main</a>
-        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">w/retired</a>
-        
-        <a class="ms-2 text-dark text-decoration-none bg-danger bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=needsmove")" hx-target="#renderdiv" hx-indicator="#indicator">Move by status</a>
-        <a class="ms-2 text-dark text-decoration-none bg-danger bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedunresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Affected</a>
-        
-        <a class="ms-2 text-dark text-decoration-none bg-success bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=resolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved by status</a>
-        <a class="ms-2 text-dark text-decoration-none bg-success bg-opacity-10 rounded" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved affected</a>
-        
+        <span class="p-1 border rounded align-middle"><span class="text-muted">PEOPLE<i class="bi bi-arrow-right"></i></span>
+            <a class="ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=noretired")" hx-target="#renderdiv" hx-indicator="#indicator">Main</a>
+            <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">w/retired</a>
+            <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=needsmove")" hx-target="#renderdiv" hx-indicator="#indicator">Move status</a>
+            <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedunresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Affected</a>
+            <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=resolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved status</a>
+            <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved affected</a>
+            @*<a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=megapeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">Mega</a>*@
+        </span>
         
         <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=churcheswithstatus")" hx-target="#renderdiv" hx-indicator="#indicator">Churches</a>
         
-        <a class="ms-2 ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=currentappointments")" hx-target="#renderdiv" hx-indicator="#indicator">Current appointments</a>
-        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=pendingsimple")" hx-target="#renderdiv" hx-indicator="#indicator">Projected appointments</a>
-            
+        <a class="ms-2 ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=currentappointments")" hx-target="#renderdiv" hx-indicator="#indicator">Current appts</a>
+        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=pendingsimple")" hx-target="#renderdiv" hx-indicator="#indicator">Projected</a>
+        <a class="ms-2 text-dark text-decoration-none editlink" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=bulk")" hx-target="#renderdiv" hx-indicator="#indicator">Bulk</a>
+        
+        <a data-bs-toggle="offcanvas" data-bs-target="#snapshotmodal" 
+        hx-get="@BRT.SecureUrl("/at2ajax?action=pendingdataform&formorpersonid=new")" 
+        hx-target="#snapbody" hx-indicator="#modalindicator" href="#" 
+        class="btn btn-sm btn-success ms-2 editlink"><i class="bi bi-plus-circle"></i> New appt</a>    
         
         <a class="text-muted text-decoration-none float-end" href="/at2?logout=logout" id="logout"><i class="fs-5 bi bi-door-open-fill"></i></a>
     </div>
@@ -366,7 +387,8 @@
                             
                             <h4>Instructions</h4>
                             
-                            <div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/672031222?h=4dff03bf7c&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Instructions 1/31/2022"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
+                            <div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/677283173?h=4117e26732&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Appointment Tool 2 Walkthrough 2/14/22"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
+                        <p class="mt-4"><a href="https://help.brickriver.com/article/313-appointment-tool-2-documentation" target="_blank">Documentation in our KB</a></p>
                         </div>
                     </div>
                 </div>
@@ -374,11 +396,11 @@
         </div>
     </div>
 </div>
-    
+   
         
         
 @*This is the offcanvas Bootstrap components. It's articulated here and then called from everywhere*@        
-<div class="offcanvas offcanvas-end w-50" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="snapshotmodal" aria-labelledby="snapshotmodal">
+<div class="offcanvas offcanvas-end w-50" data-bs-scroll="true" data-bs-backdrop="true" tabindex="-1" id="snapshotmodal" aria-labelledby="snapshotmodal" _="on click elsewhere put 'loading' into #snapbody">
   <div class="offcanvas-body">
       <div class="linear-activity htmx-indicator" id="modalindicator">
         <div class="indeterminate" ></div>
