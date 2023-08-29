@@ -57,7 +57,7 @@ string ajaxurl = Request.QueryString["ajaxurl"]; // this is for the "printing" W
             case "getmetricsperson": // this may actually trump the getmetrics() helper. Need to ask Barbara Gomes
                 @getMetricsPerson(id);
                 break;
-            case "makemschanger": // The cabine can change the move status on the screen. This helper loads a selector of move statuses.
+            case "makemschanger": // The cabinet can change the move status on the screen. This helper loads a selector of move statuses.
                 @makemschanger(id);
                 break;
             case "changemovestatus": // this changes the move status and then fires a function that shows the updated status. So a cabinet user can choose "appointment set" and it will save that to the DB
@@ -69,7 +69,7 @@ string ajaxurl = Request.QueryString["ajaxurl"]; // this is for the "printing" W
             case "deleteprojected": // if a user wants to delete a pending appointment, we do that. The id is that of the pending appointment record.
                 @deleteprojected(id);
                 break;
-            case "getchurchfromgcfa": // this gets the graphs for a single church from GCFA's metrics. For example: https://gcfa-portal.brtsite.com/metrics-report?church=017580
+            case "getchurchfromgcfa": // this gets the graphs for a single church from GCFA's metrics. For example: https://gcfa-umdata.brtsite.com/metrics-report?church=017580
                 @getchurchfromgcfa(id);
                 break;
             case "getappointmentchurchgraphs": // this will get many graphs for people based on their appointments. You pass in a person id and it gets their appointments and church graphs
@@ -80,6 +80,9 @@ string ajaxurl = Request.QueryString["ajaxurl"]; // this is for the "printing" W
                 break;
             case "bulk":
                 @bulk();
+                break;
+            case "bigdownload":
+                @bigdownload();
                 break;
         }
 }
@@ -93,7 +96,7 @@ else {
 @helper getchurchfromgcfa(int? id){
     
     var adapter = EngineAdapter.Create("Contacts","AppointmentToolChurches");
-    adapter.AddResultFields(new[] {"GCFANumber"}); // just get the GCFA # for giving to the GCFA report. We need the GCFA number to pass to their report page: https://gcfa-portal.brtsite.com/metrics-report?church=017580 This last part is a GCFA number
+    adapter.AddResultFields(new[] {"GCFANumber"}); // just get the GCFA # for giving to the GCFA report. We need the GCFA number to pass to their report page: https://gcfa-umdata.brtsite.com/metrics-report?church=017580 This last part is a GCFA number
     adapter.AddCondition("<Eq FieldId=\"Id\" Value=\"" + id + "\"/>");
     EngineRecordList item =  adapter.GetList(1,1,true);
     if (item.Count > 0) {
@@ -119,7 +122,7 @@ else {
         			}
         		</script>
                 
-                <iframe scrolling="no" class="w-100 border" src="https://gcfa-portal.brtsite.com/metrics-report?iframed=yes&church=@record["GCFANumber"]"></iframe>
+                <iframe scrolling="no" class="w-100 border" src="https://gcfa-umdata.brtsite.com/metrics-report-church-only?iframed=yes&church=@record["GCFANumber"]"></iframe>
                 
                 <script type="text/javascript">
         			iFrameResize({
@@ -147,8 +150,6 @@ else {
         					);
         				}
         			});
-        
-        
         		</script>
         		</div>
             }
@@ -167,6 +168,9 @@ else {
     //adapter.AddSortField("StartDate",false);
     EngineRecordList item =  adapter.GetList(1,50,true);
     if (item.Count > 0) {
+        <p>Church graphs from GCFA. <br/>Not loaded? Sometimes there are fetch issues. If so, sometimes, <a _="on click remove .d-none from #back" href="#" class=""
+                                                            hx-get="@BRT.SecureUrl("/at2ajax?action=getperson&id=" + id)" hx-target="#snapbody" hx-indicator="#modalindicator"
+                                                        >loading this person again</a> fixes it.</p>
         foreach (EngineRecord record in item) {
             if (!record.IsDBNull("Church")) {
                 foreach (EngineRecord record_church in record.GetRecordList("Church")) {
@@ -249,7 +253,12 @@ else {
     EngineAdapter ad = EngineAdapter.Create("Contacts","AppointmentToolPeople"); 
     ad.AddResultField("MoveStatus");
     EngineRecord person = ad.GetRecord(id);
-    person["MoveStatus"] = ms;
+    if(ms==0){
+        person["MoveStatus"] = null;
+    }
+    else{
+        person["MoveStatus"] = ms;
+    }
     person.Update();
     
     // now we need to get the pending appointments, affecting appointments, and move status to send that to the stage status and update on the page
@@ -329,6 +338,7 @@ else {
         @foreach(EngineRecord c in item) {
             <div><a class="text-white text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=changemovestatus&id=" + personId + "&ms=" + c["Id"])" hx-target="#ms-@personId" @BRT.Raw(hs2) >@c["Label"]</a></div>
         }
+        <div><a class="text-white text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=changemovestatus&id=" + personId + "&ms=0")" hx-target="#ms-@personId" @BRT.Raw(hs2) >Blank</a></div>
     </div>
     )
 }
@@ -339,19 +349,19 @@ else {
 bool showstage = true; // This is on for all BUT it wasn't always that way and may change. It determines whether we show/query for affecting and pending appointments.
 bool showaffector = true; // Similar here. Are we showing who's affecting them? It just builds a more complex query if yes.
 bool isAffected = false; // we set this because we display for each person whether they are affected or not.
+bool showMetrics = false;
 
 var adapter = EngineAdapter.Create("Contacts","AppointmentToolPeople");
-adapter.AddResultFields(new[] {"FirstName","PreferredName","LastName","MoveStatus","ClergyStatus","DateOfBirth","DateStartedInConference","Gender","Ethnicity","KeyCometencies","PeopleRank","PotentialTier","TheologicalPreferences"}); // the basic fields
+adapter.AddResultFields(new[] {"FirstName","PreferredName","LastName","NameSuffix","MoveStatus","ClergyStatus","DateOfBirth","DateStartedInConference","Gender","Ethnicity","ClergyHasThisSpouse.FirstName","ClergyHasThisSpouse.PreferredName","ClergyHasThisSpouse.LastName","ClergyHasThisSpouse.ClergyOrLay","Spouse","KeyCometencies","PeopleRank","PotentialTier","TheologicalPreferences"}); // the basic fields
 
 if(IsMultiConference()){ // This is kind of bullshit-y. It could be done better. It determines if the organization has more than one conference in it. Greater Northwest is the only at this point.
     adapter.AddResultFields(new[] {"ConferenceServing"});
 }
 
 string[] salaryBaseFields = new string[] {"Salary","Salary.PubDate","Salary.EndDate","Salary.CompensationTags"}; // Your basic fields everyone has and has to have.
-string[] affectedFields = new string[] {"Appointments.StartDate","Appointments.EndDate","Appointments.Church.District","Appointments.Church.Name","Appointments.Church.MailCity","Appointments.Church.PendingAppointments.AppointmentStatus","Appointments.Church.PendingAppointments.AppointmentPosition","Appointments.Church.PendingAppointments.StartDate","Appointments.Church.PendingAppointments.People.FirstName","Appointments.Church.PendingAppointments.People.PreferredName","Appointments.Church.PendingAppointments.People.LastName"};
-
-
+string[] affectedFields = new string[] {"Appointments.StartDate","Appointments.EndDate","Appointments.Church.District","Appointments.Church.Name","Appointments.Church.MailCity","Appointments.Church.PendingAppointments.AppointmentStatus","Appointments.Church.PendingAppointments.AppointmentPosition","Appointments.Church.PendingAppointments.StartDate","Appointments.Church.PendingAppointments.People.FirstName","Appointments.Church.PendingAppointments.People.PreferredName","Appointments.Church.PendingAppointments.People.LastName","Appointments.ExtensionMinistry","Appointments.ExtensionMinistryList"};
 string[] pendingFields = new string[] {"PendingAppointments","PendingAppointments.StartDate","PendingAppointments.AppointmentPosition","PendingAppointments.Church.Name","PendingAppointments.Church.MailCity","PendingAppointments.ExtensionMinistryPositions","PendingAppointments.ExtensionMinistry","PendingAppointments.ExtensionMinistryList"};
+string[] bigDownloadFields = new string[] {"Appointments.Church.Metrics.PubDate","Appointments.Church.Metrics.EffectiveYear","Appointments.Church.Metrics.AvgWorship","Appointments.Church.Metrics.OnlineWorshipAttendance","Appointments.Church.Metrics.BeginningMembership","Appointments.Church.Metrics.Membership","Appointments.Church.Metrics.MembershipGainLoss","Appointments.Church.Metrics.SundaySchoolAttendance","Appointments.Church.Metrics.ProfessionsOfFaith","Appointments.Church.Metrics.ApportionmentAmt","Appointments.Church.Metrics.PercentApportionmentsPaid","Appointments.Church.Metrics.ApportionmentsPaid"};
 
 switch(view) 
 {
@@ -403,6 +413,15 @@ switch(view)
         adapter.AddResultFields(pendingFields);
         adapter.AddResultFields(affectedFields);
         adapter.AddSavedFilter("AllPeopleNoRetired");
+        break;
+    case "bigdownload": // with metrics and apportionments
+        adapter.AddResultFields(salaryBaseFields);
+        adapter.AddResultFields(SalaryTotalFieldsFullyQualified("people"));
+        adapter.AddResultFields(pendingFields);
+        adapter.AddResultFields(affectedFields);
+        adapter.AddResultFields(bigDownloadFields);
+        adapter.AddSavedFilter("AllPeopleNoRetired");
+        showMetrics=true;
         break;
 }
 
@@ -465,13 +484,13 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         "paging":         false,
             "info": false,
             fixedHeader: true,
-            "order": [[ 9, "desc" ]],
+            "order": [[ 12, "desc" ]],
             dom: 'Bfrtip',
             buttons: [
                 'csv', 'excel', 'print'
             ],
         orderCellsTop: true,
-        fixedHeader: true,
+        
         initComplete: function () {
             var api = this.api();
  
@@ -536,8 +555,11 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             <th>Age</th>
             <th>Gdr</th>
             <th>Eth</th>
-            <th>YUA</th>
-            <th>Tot sal</th>
+            <th>Spouse</th>
+            <th>CC</th>
+            <th title="Years since first starting in the conference">YIA</th>
+            <th title="Years in CURRENT appointment">YUA</th>
+            <th>Tot Comp</th>
             <th>Hou</th>
             <th>Dist</th>
             @if(IsMultiConference()){
@@ -546,7 +568,9 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             <th>Comps</th>
             <th>Perf</th>
             <th>Theo</th>
-            
+            @if(showMetrics){
+                <th>Metrics</th>
+            }
             
             </tr>
         </thead>
@@ -561,7 +585,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             <a data-bs-toggle="offcanvas" data-bs-target="#snapshotmodal" 
                 href="#"
                 hx-get="@BRT.SecureUrl("/at2ajax?action=getperson&id=" + record.Id)" 
-                hx-target="#snapbody" class="text-dark"  hx-indicator="#modalindicator"
+                hx-target="#snapbody" class="text-dark"  hx-indicator="#modalindicator"  preload="mouseover"
             >
             @if(!record.IsDBNull("PreferredName")) {
               <span> @record["PreferredName"]</span>
@@ -571,6 +595,9 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             }
             @if(!record.IsDBNull("LastName")) {
                <span> @record["LastName"]</span>
+            }
+            @if(!record.IsDBNull("NameSuffix")) {
+               <span> @record["NameSuffix"]</span>
             }
             
             </div>
@@ -587,7 +614,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         else {
             <small>
             <a href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=makemschanger&id=" + record.Id)" hx-swap="afterend" class="text-dark" id="currentstatus-@record.Id">
-                <span class="text-muted">set</span>
+                <span class="text-muted">Blank</span>
             </a></small>
         }
         </td>
@@ -796,10 +823,61 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
           <span at-ethnicity="@record.GetFirstCategoryLabel("Ethnicity")">@record.GetFirstCategoryLabel("Ethnicity")</span>
         }
         </td>
+        @if (record.HasField("Spouse") && !record.IsDBNull("Spouse")) {
+            <td>@record["Spouse"]</td>
+            <td></td>
+        } else if (record.HasField("ClergyHasThisSpouse") && !record.IsDBNull("ClergyHasThisSpouse") && record.GetRecordList("ClergyHasThisSpouse").Count > 0) {
+            EngineRecord record_people = record.GetRecordList("ClergyHasThisSpouse")[0];
+            <td>
+                <a data-bs-toggle="offcanvas" data-bs-target="#snapshotmodal" 
+                    href="#"
+                    hx-get="@BRT.SecureUrl("/at2ajax?action=getperson&id=" + record_people.Id)" 
+                    hx-target="#snapbody" class="text-dark"  hx-indicator="#modalindicator"
+                >
+                    
+                    @if (record_people.HasField("PreferredName") && !record_people.IsDBNull("PreferredName")) {
+                        <span>@record_people["PreferredName"]</span>
+                    } else if (record_people.HasField("FirstName") && !record_people.IsDBNull("FirstName")) {
+                        <span>@record_people["FirstName"]</span>
+                    }
+                    @if (record_people.HasField("LastName") && !record_people.IsDBNull("LastName")) {
+                        <span>@record_people["LastName"]</span>
+                    }
+                </a>
+            </td>
+            <td>
+                @if (record_people.HasField("ClergyOrLay") && !record_people.IsDBNull("ClergyOrLay")) {
+                    if(record_people.GetFirstCategoryLabel("ClergyOrLay") == "Clergy"){
+                        <span><i class="bi bi-heart-fill text-danger ms-2"></i> cc</span>
+                    }
+                }
+            </td>
+        } else {
+            <td></td>
+            <td></td>
+        }
         <td>
         @if(!record.IsDBNull("DateStartedInConference")) {
            <div>@Math.Floor((DateTime.Now - record.GetDateTime("DateStartedInConference")).TotalDays / 365)</div>
         }
+        </td>
+        <td>
+            @{
+                double thisYua = 0;
+            }
+            @if (!record.IsDBNull("Appointments")) {
+                foreach (EngineRecord record_appointments in record.GetRecordList("Appointments")) {
+                    @* Church (appt tool) *@
+                    // we are seeing if these are their CURRENT appoinments. I should probably pull this into a functionm that centralizes this.
+                    if ((!record_appointments.IsDBNull("Church") || !record_appointments.IsDBNull("ExtensionMinistryList") || !record_appointments.IsDBNull("ExtensionMinistry")) && (record_appointments.IsDBNull("StartDate") || record_appointments.GetDateTime("StartDate") < DateTime.Now) && (record_appointments.IsDBNull("EndDate") || record_appointments.GetDateTime("EndDate") >= DateTime.Now)) {
+                        if(Math.Floor((DateTime.Now - record_appointments.GetDateTime("StartDate")).TotalDays / 365) > thisYua){
+                            thisYua = Math.Floor((DateTime.Now - record_appointments.GetDateTime("StartDate")).TotalDays / 365);
+                        }
+                    }
+                }
+            }   
+            @thisYua
+            
         </td>
         <td class="bg-success bg-opacity-10 salary-field total-salary">
             @if(!record.IsDBNull("Salary")) { // This GetTotalSalary() function gets passed a record list of salary records and it can come from peopel or churches
@@ -828,6 +906,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                 }
                             }
                         }
+                        break;
                     }
                 }
             }
@@ -900,9 +979,145 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                 }
             }
         </td>
+        @if(showMetrics){
+            <td>
+                @{
+                    bool makeTable = false;
+                    if (!record.IsDBNull("Appointments") && record.GetRecordList("Appointments").Count > 0 && !makeTable) {
+                        foreach (EngineRecord appt in record.GetRecordList("Appointments")) {
+                            if (!appt.IsDBNull("Church") && appt.GetRecordList("Church").Count > 0 && !makeTable) {
+                                foreach (EngineRecord church in appt.GetRecordList("Church")) {
+                                    if (!church.IsDBNull("Metrics") && church.GetRecordList("Metrics").Count > 0 && !makeTable) {
+                                        foreach (EngineRecord metric in church.GetRecordList("Metrics")) {
+                                            if(!makeTable){
+                                                makeTable = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if(makeTable){
+                        System.Collections.Generic.List<EngineRecord> metricList = new System.Collections.Generic.List<EngineRecord>();
+                        if (!record.IsDBNull("Appointments") && record.GetRecordList("Appointments").Count > 0) {
+                            foreach (EngineRecord appt in record.GetRecordList("Appointments")) {
+                                if (!appt.IsDBNull("Church") && appt.GetRecordList("Church").Count > 0) {
+                                    foreach (EngineRecord church in appt.GetRecordList("Church")) {
+                                        if (!church.IsDBNull("Metrics") && church.GetRecordList("Metrics").Count > 0) {
+                                            foreach (EngineRecord metric in church.GetRecordList("Metrics")) {
+                                                metricList.Add(metric);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        metricList.Sort(
+                        	(l,r) => {
+                        		int result = l.GetInteger("EffectiveYear").CompareTo(r.GetInteger("EffectiveYear"));
+                        		if (result == 0) {
+                        			result = l.GetDateTime("PubDate").CompareTo(r.GetDateTime("PubDate"));
+                        		}
+                        		return result;
+                        	}
+                        );
+                        metricList.Reverse();
+                    
+                        <table class="table table-sm table-bordered" style="font-size: 85%;">
+                            <tr>
+                                <th>Pub Date</th>
+                                <th>Year</th>
+                                <th>Avg Wship</th>
+                                <th>Online Wship Attnd</th>
+                                <th>Beg Mbship</th>
+                                <th>Mbship</th>
+                                <th>Mbship +/-</th>
+                                <th>Sunday Sch Attnd</th>
+                                <th>Prof Faith</th>
+                                <th>Apptnmt Amt</th>
+                                <th>% Apptnmts Paid</th>
+                                <th>Apptnmts Paid</th>
+                            </tr>
+                            
+                            @{
+                                int count = 0;
+                                foreach(EngineRecord metric in metricList){
+                                    if(count < 5){
+                                        count++;
+                                        <tr>
+                                            <td>
+                                                @if (!metric.IsDBNull("PubDate")) {
+                                                    @metric.GetDateTime("PubDate").ToString("MM/dd/yy")
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("EffectiveYear")) {
+                                                    @metric["EffectiveYear"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("AvgWorship")) {
+                                                    @metric["AvgWorship"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("OnlineWorshipAttendance")) {
+                                                    @metric["OnlineWorshipAttendance"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("BeginningMembership")) {
+                                                    @metric["BeginningMembership"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("Membership")) {
+                                                    @metric["Membership"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("MembershipGainLoss")) {
+                                                    @metric["MembershipGainLoss"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("SundaySchoolAttendance")) {
+                                                    @metric["SundaySchoolAttendance"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("ProfessionsOfFaith")) {
+                                                    @metric["ProfessionsOfFaith"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("ApportionmentAmt")) {
+                                                    @metric["ApportionmentAmt"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("PercentApportionmentsPaid")) {
+                                                    @metric["PercentApportionmentsPaid"]
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (!metric.IsDBNull("ApportionmentsPaid")) {
+                                                    @metric["ApportionmentsPaid"]
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            }
+                        </table>
+                    } else {
+                        <span style="font-size: 85%;">N/A</span>
+                    }
+                }
+            </td>
+        }
     </tr>
-    
-    
   }
 </tbody>
 </table>
@@ -934,7 +1149,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             if(String.IsNullOrEmpty(moveStatus)){
                 <small class="bg-light px-1 rounded d-block">no move status</small>
             }
-            else if(moveStatus=="Could" || moveStatus=="Should" || moveStatus=="Must" || moveStatus=="Retiring") {
+            else if(moveStatus=="Could" || moveStatus=="Should" || moveStatus=="Must" || moveStatus=="Retiring" || moveStatus=="Withdrawing") {
                 <small class="text-white bg-danger px-1 rounded d-block">move: @moveStatus</small>
             }
             else if(moveStatus=="Remain" || moveStatus=="Appointment Set") {
@@ -955,8 +1170,8 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
 {
 
     var adapter = EngineAdapter.Create("Contacts","AppointmentToolChurches");
-    adapter.AddResultFields(new[] {"Name","MailCity","District.Name","ClergyServing.People.FirstName","ClergyServing.People.PreferredName","ClergyServing.People.LastName"}); // the basic fields
-    adapter.AddResultFields(new[] {"ClergyServing.People.PendingAppointments.Church.Name","ClergyServing.People.PendingAppointments.Church.MailCity","ClergyServing.People.PendingAppointments.ExtensionMinistryPositions","ClergyServing.People.PendingAppointments.ExtensionMinistry","ClergyServing.People.PendingAppointments.ExtensionMinistryList","PendingAppointments.People.FirstName","PendingAppointments.People.PreferredName","PendingAppointments.People.LastName"}); // pending and more
+    adapter.AddResultFields(new[] {"Name","ConferenceChurchNumber","MailCity","District.Name","ClergyServing.People.FirstName","ClergyServing.People.PreferredName","ClergyServing.People.LastName","DisaffiliationStatus"}); // the basic fields
+    adapter.AddResultFields(new[] {"ClergyServing.People.PendingAppointments.Church.Name","ClergyServing.People.PendingAppointments.Church.MailCity","ClergyServing","ClergyServing.People.PendingAppointments.ExtensionMinistryPositions","ClergyServing.People.PendingAppointments.ExtensionMinistry","ClergyServing.People.PendingAppointments.ExtensionMinistryList","PendingAppointments.People.FirstName","PendingAppointments.People.PreferredName","PendingAppointments.People.LastName"}); // pending and more
     adapter.AddResultFields(new[] {"CompensationInfo","CompensationInfo.PubDate","CompensationInfo.EndDate"});
     adapter.AddResultFields(SalaryTotalFieldsFullyQualified("churches"));
     if(IsMultiConference()){
@@ -968,7 +1183,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
     <div class="text-center mt-1">
         
         <a hx-get="@BRT.SecureUrl("/at2ajax?" + Request.Url.ToString().Split('?')[1])" 
-    hx-target="#renderdiv" hx-indicator="#indicator" href="#" 
+    hx-target="#renderdiv" hx-indicator="#indicator" href="#" preload="mouseover"
     class="btn btn btn-outline-secondary btn-sm">
         <i class="bi bi-arrow-clockwise"></i></a>
         
@@ -1065,14 +1280,17 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         <tr>
             
             <th>Church</th>
+            <th>Conf #</th>
             <th>District</th>
             @if(IsMultiConference()){
                 <th>Conf</th>
             }
+            <th>Num app</th>
             <th>Leaving</th>
             <th>Coming</th>
             <th>Status</th>
             <th>Tot sal</th>
+            <th title="Disaffiliation status">Disaff</th>
         </tr>
     </thead>
     <tbody>
@@ -1081,10 +1299,12 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
     @{
     int leaving = 0;
     int coming = 0;
+    int numServing = 0;
 }
         @foreach (EngineRecord record in item) {
         leaving = 0;
         coming = 0;
+        numServing = 0;
         
         <tr id="ch-@record.Id" class="churchrow visible">
             <td>
@@ -1108,6 +1328,11 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                 </span>
             }
             </a>
+            </td>
+            <td>
+                @if (!record.IsDBNull("ConferenceChurchNumber")) {
+                    @record["ConferenceChurchNumber"]
+                }
             </td>
             <td>
 
@@ -1135,6 +1360,14 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                     }
                 </td>
             }
+            <td>
+                @if (!record.IsDBNull("ClergyServing")) {
+                    foreach (EngineRecord serving in record.GetRecordList("ClergyServing")) {
+                        numServing+=1;
+                    }
+                }
+                @numServing
+            </td>
             
             <td>
             @* Clergy currently serving *@
@@ -1253,8 +1486,10 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                             }
                         </small></div>
                 }
+                
                 </span>
             }
+            
             </td>
             <td>
             @* Incoming Projected Appointments *@
@@ -1304,20 +1539,29 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             
             </td>
             <td>
-                @if(leaving==coming || leaving < coming){
+                @if((leaving==coming && numServing >0) || leaving < coming){
                     <span _="on load add .resolvedchurch to the closest parent <tr/>"></span>
                 }
                 else {
                     <span _="on load add .openchurch to the closest parent <tr/>"></span>
                 }
                 <small class="text-white">
-                    <span class="@(leaving==coming || leaving<coming?" px-1 bg-success rounded d-inline-block text-nowrap":"px-1 bg-danger rounded d-inline-block text-nowrap")">@leaving leaving, @coming coming</span>
+                    <span class="@((leaving==coming && numServing>0) || leaving<coming?" px-1 bg-success rounded d-inline-block text-nowrap":"px-1 bg-danger rounded d-inline-block text-nowrap")">@numServing serving, @leaving leaving, @coming coming</span>
                 </small>
             </td>
             
             <td class="bg-success bg-opacity-10 salary-field">
                 @if(!record.IsDBNull("CompensationInfo")) {
                     @BRT.Raw(GetTotalSalary(record.GetRecordList("CompensationInfo")))
+                }
+            </td>
+            <td>
+                @if (!record.IsDBNull("DisaffiliationStatus")) {
+                    foreach (CategoryFieldItem cat in record.GetCategory("DisaffiliationStatus")) {
+                        <text>
+                            @cat.Label
+                        </text>
+                    }
                 }
             </td>
             
@@ -1337,7 +1581,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         adapter.AddResultFields(new[] {"PrimaryImage","FirstName","PreferredName","LastName","MoveStatusPerson","MoveStatusChurch","MoveStatus","MoveStatusNotes","AppointmentFit","PeopleRank",
         "PotentialTier","KeyCometencies","ClergySpouseTags","TheologicalPreferences","ClergyStatus","MaritalStatus","TrainingCertLog.TrainingType","TrainingCertLog.NamedClass",
         "TrainingCertLog.CompletionStatus","TrainingCertLog.PubDate","TrainingCertLog.ExpiresOn","TrainingCertLog.TrainingFile","ChildrenInfo","Spouse",
-        "ClergyHasThisSpouse.FirstName","ClergyHasThisSpouse.LastName","DateStartedInConference","DateOfBirth","Ethnicity","Gender","HomeChurch.District.Name",
+        "ClergyHasThisSpouse.FirstName","ClergyHasThisSpouse.LastName","ClergyHasThisSpouse.ClergyOrLay","DateStartedInConference","DateOfBirth","Ethnicity","Gender","HomeChurch.District.Name",
         "CurrentConferenceDropDown","ConfidentialNote","GCFAId","AppointmentToolFiles","Registrations.EventName","Registrations.RegisterDate","Registrations.AccessKey"}); // the basic fields
         
         adapter.AddResultFields(new[] {"Salary","Salary.PubDate","Salary.EndDate","Salary.CompensationTags"}); // salary fields
@@ -1558,6 +1802,11 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                                             @if (record_people.HasField("LastName") && !record_people.IsDBNull("LastName")) {
                                                                 <span>@record_people["LastName"]</span>
                                                             }
+                                                            @if (record_people.HasField("ClergyOrLay") && !record_people.IsDBNull("ClergyOrLay")) {
+                                                                if(record_people.GetFirstCategoryLabel("ClergyOrLay") == "Clergy"){
+                                                                    <i class="bi bi-heart-fill text-danger ms-2" title="Is a clergy couple"></i>
+                                                                }
+                                                            }
                                                         </a>
                                                     }
                                                 </td>
@@ -1746,12 +1995,18 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                 </div>
                             </div>
                             <div class="tabularcontent">
+                                
                                 @getaffecting(id)
                                 @getProjectedAppts(id, churchorperson)
-                                @getAppts(id, churchorperson)
+                                <div hx-get="@BRT.SecureUrl("/at2ajax?action=getappts&id=" + id + "&churchorperson=person")" hx-trigger="intersect once">appts</div>
+                                @*@getAppts(id, churchorperson)*@
                                 
-                                @getMetricsPerson(id)
-                                @*getSalary(id, churchorperson)*@
+                                <div hx-get="@BRT.SecureUrl("/at2ajax?action=getmetricsperson&id=" + id)" hx-trigger="intersect once">metrics</div>
+                                @*@getMetricsPerson(id)*@
+                                
+                                <div hx-get="@BRT.SecureUrl("/at2ajax?action=getsalary&id=" + id + "&churchorperson=person")" hx-trigger="intersect once">comp</div>
+                                @*@getSalary(id, churchorperson)*@
+                                
                                 
                                 @if(record.HasField("AppointmentToolFiles") && !record.IsDBNull("AppointmentToolFiles") && record.GetFiles("AppointmentToolFiles").Count > 0){
                                     var l = new System.Collections.Generic.List<FileFieldItem>();
@@ -1850,7 +2105,8 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                     </div>
                                 }
                                 @*<h5>Charts from GCFA (if exists)</h5>*@
-                                @getappointmentchurchgraphs(id)
+                                <div hx-get="@BRT.SecureUrl("/at2ajax?action=getappointmentchurchgraphs&id=" + id)" hx-trigger="intersect once">graphs</div>
+                                @*@getappointmentchurchgraphs(id)*@
                                 
                             </div>
                         </div>
@@ -2175,7 +2431,8 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                 </td>
                                 <td>
                                     @if (record.HasField("StartDate") && !record.IsDBNull("StartDate")) {
-                                        int years = DateTime.Now.Year - record.GetDateTime("StartDate").Year;
+                                        //int years = DateTime.Now.Year - record.GetDateTime("StartDate").Year;
+                                        double years = Math.Floor((DateTime.Now - record.GetDateTime("StartDate")).TotalDays / 365);
                                         <span>@years years</span>
                                     } else {
                                         <span>(start date not available)</span>
@@ -2589,153 +2846,78 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             cond = "<And><Eq Scope=\"Both\" FieldId=\"Church.Id\" Value=\"" + id + "\"/><Lt FieldId=\"PubDate\" When=\"now\" /><Or><Gt FieldId=\"EndDate\" When=\"now\" /><IsNull FieldId=\"EndDate\" /></Or></And>";
         } else if(churchorperson == "person"){
             <!--<p>person</p>-->
-            cond = "<And><Eq Scope=\"Both\" FieldId=\"People.Id\" Value=\"" + id + "\"/><Lt FieldId=\"PubDate\" When=\"now\" /><Or><Gt FieldId=\"EndDate\" When=\"now\" /><IsNull FieldId=\"EndDate\" /></Or></And>";
+            //cond = "<And><Eq Scope=\"Both\" FieldId=\"People.Id\" Value=\"" + id + "\"/><Lt FieldId=\"PubDate\" When=\"now\" /><Or><Gt FieldId=\"EndDate\" When=\"now\" /><IsNull FieldId=\"EndDate\" /></Or></And>";
+            cond = "<Eq  FieldId=\"People.Id\" Value=\"" + id + "\"/>";
         } else if(churchorperson == null){
             <!--<p>blank</p>-->
         }
     
         @BRT.Lister(tableId: "Content", viewId: "Salary",
         condition: cond,
-        fields: new[] {"PubDate","EndDate","People.FirstName","People.PreferredName","People.LastName","BaseSalary","HousingAllowance","UtilityExclusion","AccountableReimbursement","CompensationTags","OtherCompensationTags","Church.Name"},
+        //fields: new[] {"PubDate","EndDate","People.FirstName","People.PreferredName","People.LastName","BaseSalary","HousingAllowance","UtilityExclusion","AccountableReimbursement","CompensationTags","OtherCompensationTags","Church.Name"},
         template:
-        @<div>
+        @<div class="mt-3">
             @if (item.Count > 0) {
-                <h5>Compensation</h5>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered">
-                        <tr class="bg-light">
-                            <th>Start</th>
-                            <th>End</th>
-                            <th>
-                                @if(churchorperson == "person"){
-                                    <span>Church</span>
-                                } else if(churchorperson == "person"){
-                                    <span>Clergy</span>
-                                }
-                            </th>
-                            <th>Base</th>
-                            <th>Hou Allow</th>
-                            @if(churchorperson == "person"){
-                                <th>Salary + HA</th>
-                            }
-                            <th>Util Exc</th>
-                            <th>Accou Reimb</th>
-                            @if(churchorperson == "person"){
-                                <th>Salary + AR</th>
-                            }
-                            <th>Hou</th>
-                            @if(churchorperson == "person"){
-                                <th>Salary + HA + AR</th>
-                            }
-                            @if(churchorperson == "person"){
-                                <th>Other Comp Tags</th>
-                            }
-                        </tr>
-                        @foreach (EngineRecord record in item) {
-                            <tr>
-                                <td>
-                                    @if (record.HasField("PubDate") && !record.IsDBNull("PubDate")) {
-                                        @record.GetDateTime("PubDate").ToShortDateString()
-                                    }
-                                </td>
-                                <td>
-                                    @if (record.HasField("EndDate") && !record.IsDBNull("EndDate")) {
-                                        @record.GetDateTime("EndDate").ToShortDateString()
-                                    }
-                                </td>
-                                <td>
-                                    @if(churchorperson == "person"){
-                                        if (record.HasField("Church") && !record.IsDBNull("Church")) {
-                                            foreach (EngineRecord record_church in record.GetRecordList("Church")) {
-                                                if (!record_church.IsDBNull("Name")) {
-                                                    <a _="on click remove .d-none from #back then go to #modalhead smoothly" href="#" class="text-dark"
-                                                        hx-get="@BRT.SecureUrl("/at2ajax?action=getchurch&id=" + record_church.Id)" hx-target="#modalmeat" hx-indicator="#modalindicator" 
-                                                    >
-                                                        @record_church["Name"]
-                                                    </a>
+                int recordCount = 0;
+                <h5>Compensation (6 years back)</h5>
+                <div class="row">
+                    @foreach (EngineRecord record in item) {
+                        recordCount+=1;
+                        if(recordCount > 6){
+                            break;
+                        }
+                        <div class="col-md-6 mb-3">
+                        <div class="border rounded h-100">
+                            <table class="table table-responsive table-sm mb-0">
+                                <text>
+                                    @for(var i = 0; i < @record.FieldCount; i++){
+                                        if(record.HasField(record.get_FieldMeta(i).Id) && !record.get_FieldMeta(i).Invisible && !record.IsDBNull(i) && CompOptionCheck("HideInApptTool",record.get_FieldMeta(i)) == false && record.get_FieldMeta(i).Id!="SourceId" && !record.IsDBNull(i) && record.get_FieldMeta(i).Id!="SourceName" && !record.IsDBNull(i) && record.get_FieldMeta(i).Id!="CreatedBy" && !record.IsDBNull(i) && record.get_FieldMeta(i).Id!="WhenCreated" && !record.IsDBNull(i) && record.get_FieldMeta(i).Id!="WhenUpdated"  ){
+                                            var fieldMeta = record.get_FieldMeta(i);
+                                            if (fieldMeta is EngineCore.Meta.CategoryMeta) {
+                                            
+                                                if(@fieldMeta.Name != "Type" ){
+                                                    if(!record.IsDBNull(i)){
+                                                        foreach(CategoryFieldItem catItem in @record.GetCategory(i)) {
+                                                            <tr>
+                                                                <td class="text-end pe-2 fw-bold">
+                                                                    <small>@record.get_FieldMeta(i).FullName</small>
+                                                                </td>
+                                                                <td>
+                                                                    <small>@catItem.Label</small>
+                                                                </td>
+                                                            </tr>
+                                                        } 
+                                                    }
+                                                }
+                                            
+                                            } else if (fieldMeta is EngineCore.Meta.RelationshipMeta) {
+                                                
+                                            }
+                                            else if(fieldMeta is EngineCore.Meta.FileMeta){
+                                                
+                                            }
+                                            else{
+                                                if(!record.IsDBNull(i)){
+                                                    <tr>
+                                                        <td class="text-end pe-2 fw-bold">
+                                                            <small>@record.get_FieldMeta(i).FullName</small>
+                                                        </td>
+                                                        <td>
+                                                            <small>@BRT.Raw(record.get_FormattedValue(i))</small>
+                                                        </td>
+                                                    </tr>
                                                 }
                                             }
-                                        }
-                                    } else if (churchorperson == "church"){
-                                        if (record.HasField("People") && !record.IsDBNull("People") && record.GetRecordList("People").Count > 0) {
-                                            foreach (EngineRecord record_people in record.GetRecordList("People")) {
-                                                <a _="on click remove .d-none from #back then go to #modalhead smoothly" href="#" class="text-dark"
-                                                    hx-get="@BRT.SecureUrl("/at2ajax?action=getperson&id=" + record_people.Id)" hx-target="#modalmeat" hx-indicator="#modalindicator" 
-                                                >
-                                                    @if (record_people.HasField("PreferredName") && !record_people.IsDBNull("PreferredName")) {
-                                                        <span>@record_people["PreferredName"]</span>
-                                                    } else if (record_people.HasField("FirstName") && !record_people.IsDBNull("FirstName")) {
-                                                        <span>@record_people["FirstName"]</span>
-                                                    }
-                                                    @if (record_people.HasField("LastName") && !record_people.IsDBNull("LastName")) {
-                                                        <span>@record_people["LastName"]</span>
-                                                    }
-                                                </a>
-                                            }
+                                        
+                                                
                                         }
                                     }
-                                </td>
-                                <td>
-                                    @if (record.HasField("BaseSalary") && !record.IsDBNull("BaseSalary")) {
-                                        @record.GetDouble("BaseSalary").ToString("c0")
-                                    }
-                                </td>
-                                <td>
-                                    @if (record.HasField("HousingAllowance") && !record.IsDBNull("HousingAllowance")) {
-                                        @record.GetDouble("HousingAllowance").ToString("c0")
-                                    }
-                                </td>
-                                @if(churchorperson == "person"){
-                                    <td>
-                                        @if (record.HasField("BaseSalary") && record.HasField("HousingAllowance")) {
-                                            double amt = record.GetDouble("BaseSalary") + record.GetDouble("HousingAllowance");
-                                            <span>@amt.ToString("c0")</span>
-                                        }
-                                    </td>
-                                }
-                                <td>
-                                    @if (record.HasField("UtilityExclusion") && !record.IsDBNull("UtilityExclusion")) {
-                                        @record.GetDouble("UtilityExclusion").ToString("c0")
-                                    }
-                                </td>
-                                <td>
-                                    @if (record.HasField("AccountableReimbursement") && !record.IsDBNull("AccountableReimbursement")) {
-                                        @record.GetDouble("AccountableReimbursement").ToString("c0")
-                                    }
-                                </td>
-                                @if(churchorperson == "person"){
-                                    <td>
-                                        @if (record.HasField("BaseSalary") && record.HasField("AccountableReimbursement")) {
-                                            double amt = record.GetDouble("BaseSalary") + record.GetDouble("AccountableReimbursement");
-                                            <span>@amt.ToString("c0")</span>
-                                        }
-                                    </td>
-                                }
-                                <td>
-                                    @if (record.HasField("CompensationTags") && !record.IsDBNull("CompensationTags")) {
-                                        foreach (CategoryFieldItem cat in record.GetCategory("CompensationTags")) {
-                                            @cat.Label
-                                        }
-                                    }
-                                </td>
-                                @if(churchorperson == "person"){
-                                    <td>
-                                        @if (record.HasField("BaseSalary") && record.HasField("HousingAllowance")  && record.HasField("AccountableReimbursement")) {
-                                            double amt = record.GetDouble("BaseSalary") + record.GetDouble("HousingAllowance") + record.GetDouble("AccountableReimbursement");
-                                            <span>@amt.ToString("c0")</span>
-                                        }
-                                    </td>
-                                }
-                                @if(churchorperson == "person"){
-                                    <td>
-                                        @if (record.HasField("OtherCompensationTags") && !record.IsDBNull("OtherCompensationTags")) {
-                                            @record.GetDouble("OtherCompensationTags").ToString("c0")
-                                        }
-                                    </td>
-                                }
-                            </tr>
-                        }
-                    </table>
+                                </text>
+                                </table>
+                            </div>
+                        </div>
+                    }
+                            
                 </div>
             }
         </div>)
@@ -2768,7 +2950,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                 double totalPercentPaid = 0;
                 int numberPercentPaid = 0;
                 <h5>Apportionments <small id="avgpercentpaid" class="ms-2 bg-primary bg-opacity-10"></small></h5>
-                <div>
+                <div class="showcap">
                     <div class="table-responsive">
                     <table class="table table-sm table-bordered">
                         <tr class="bg-light">
@@ -3016,6 +3198,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
             
                 if(yearList.Count > 0){
                     <h5>Apportionments</h5>
+                    <div class="showcap">
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered">
                             <tr class="bg-light">
@@ -3077,7 +3260,9 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                             }
                         </table>
                     </div>
-                    <h5>Metrics</h5>
+                    </div>
+                    <h5 class="mt-3">Metrics</h5>
+                    <div class="showcap">
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered">
                             <tr class="bg-light">
@@ -3153,6 +3338,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                 }
                             }
                         </table>
+                    </div>
                     </div>
                 }
             }
@@ -3352,8 +3538,11 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                             <div class="tabularcontent">
                                 @getProjectedAppts(id, churchorperson)
                                 @getAppts(id, churchorperson)
-                                @getSalary(id, churchorperson)
-                                @getMetrics(id, churchorperson)
+                                <div hx-get="@BRT.SecureUrl("/at2ajax?action=getsalary&id=" + id + "&churchorperson=church")" hx-trigger="intersect once">comp</div>
+                                
+                                @*@getSalary(id, churchorperson)*@
+                                <div hx-get="@BRT.SecureUrl("/at2ajax?action=getmetrics&id=" + id + "&churchorperson=church")" hx-trigger="intersect once">metrics</div>
+                                @*@getMetrics(id, churchorperson)*@
                                 
                                 @if (record.HasField("Registrations") && !record.IsDBNull("Registrations") && record.GetRecordList("Registrations").Count > 0) {
                                     <h5 class="mt-2">Forms</h5>
@@ -3379,7 +3568,8 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                     </div>
                                 }
                                 @*<h5>Graphs from GCFA (if exists)</h5>*@
-                                @getchurchfromgcfa(id)
+                                <div hx-get="@BRT.SecureUrl("/at2ajax?action=getchurchfromgcfa&id=" + id)" hx-trigger="intersect once">graphs</div>
+                                @*@getchurchfromgcfa(id)*@
                                 
                             </div>
                         </div>
@@ -3393,32 +3583,35 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
 
 @helper pendingsimple(){ // all the projected appointments
 
-<script>
-    $(document).ready( function () {
-    $('#datatable').dataTable( {
-        "paging":         false,
-        "info": false,
-        "order": [[ 1, "desc" ]],
-        dom: 'Bfrtip',
-        buttons: [
-            'csv', 'excel', 'print'
-        ]
-            
-        } );
-} );
-</script>
+    <script>
+        $(document).ready( function () {
+            $('#datatable').dataTable( {
+                "paging":         false,
+                "info": false,
+                "order": [[ 1, "desc" ]],
+                dom: 'Bfrtip',
+                buttons: [
+                    'csv', 'excel', 'print'
+                ]
+                    
+            });
+        });
+    </script>
 
     @BRT.Lister(tableId: "Content", viewId: "AppointmentToolPendingAppointments",
     pageSize:10000,
-    fields: new[] {"People.FirstName","People.PreferredName","People.LastName","StartDate","AppointmentPosition","Church.Name","Church.District.Name","District.Name","ExtensionMinistry","AppointmentStatus","ServiceTime","OtherServicePercent","Notes","BaseSalary","CompensationTags","HousingAllowance","WhenUpdated"},
+    fields: new[] {"People.FirstName","People.PreferredName","People.LastName","StartDate","AppointmentPosition","Church.Name","Church.District.Name","District.Name","ExtensionMinistry","AppointmentStatus","ServiceTime","OtherServicePercent","Notes","BaseSalary","CompensationTags","HousingAllowance","WhenUpdated",
+    "People.Appointments.StartDate","People.Appointments.EndDate","People.Appointments.AppointmentPosition","People.Appointments.Church.Name","People.Appointments.Church.District.Name","People.Appointments.District.Name","People.Appointments.ExtensionMinistry","People.Appointments.ExtensionMinistryPositions"
+    },
     template:
-@<div>
-    <div class="text-center mt-1">
-        <a hx-get="@BRT.SecureUrl("/at2ajax?" + Request.Url.ToString().Split('?')[1])" 
-    hx-target="#renderdiv" hx-indicator="#indicator" href="#" 
-    class="btn btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-clockwise"></i></a>
-        @item.Count.ToString("N0") projected appointments <small class="text-muted">Showing most recently made first</small></div>
+    @<div>
+        <div class="text-center mt-1">
+            <a hx-get="@BRT.SecureUrl("/at2ajax?" + Request.Url.ToString().Split('?')[1])" 
+                hx-target="#renderdiv" hx-indicator="#indicator" href="#" 
+                class="btn btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-clockwise"></i></a>
+            @item.Count.ToString("N0") projected appointments <small class="text-muted">Showing most recently made first</small>
+        </div>
     
     @if (item.Count > 0) {
         
@@ -3429,6 +3622,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                     <th></th>
                     <th>Updated</th>
                     <th>Person</th>
+                    <th>Current Appts</th>
                     <th>Start</th>
                     <th>Position</th>
                     <th>Church</th>
@@ -3442,7 +3636,6 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                     <th>Base sal</th>
                     <th>HOU</th>
                     <th>Allowance</th>
-                    
                     
                 </tr>
             </thead>
@@ -3493,6 +3686,89 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                                     </span>
                                 }
                                 @BRT.Raw("</a>")
+                            }
+                        }
+                    </td>
+                    
+                    
+                    @* Current Appointment *@
+                    <td>
+                        @if (!record.IsDBNull("People") && record.GetRecordList("People").Count > 0) {
+                            foreach (EngineRecord record_people in record.GetRecordList("People")) {
+                                if (!record_people.IsDBNull("Appointments") && record_people.GetRecordList("Appointments").Count > 0) {
+                                    foreach (EngineRecord record_people_appointments in record_people.GetRecordList("Appointments")) {
+                                        if (
+                                            (record_people_appointments.IsDBNull("StartDate") || record_people_appointments.GetDateTime("StartDate") <= DateTime.Today)
+                                            && 
+                                            (record_people_appointments.IsDBNull("EndDate") || record_people_appointments.GetDateTime("EndDate") >= DateTime.Today)
+                                        ){
+                                            <div class="p-1 mb-1 border rounded">
+                                            @if (!record_people_appointments.IsDBNull("Church") && record_people_appointments.GetRecordList("Church").Count > 0) {
+                                                
+                                                if (!record_people_appointments.IsDBNull("AppointmentPosition")) {
+                                                    foreach (CategoryFieldItem cat in record_people_appointments.GetCategory("AppointmentPosition")) {
+                                                        <span>
+                                                            @cat.Label
+                                                        </span>
+                                                    }
+                                                }
+                                                foreach (EngineRecord record_church in record_people_appointments.GetRecordList("Church")) {
+                                                    @BRT.Raw("<a hx-swap=\"innerHTML hx-indicator=\"#modalindicator\" scroll:top\" data-bs-toggle=\"offcanvas\" data-bs-target=\"#snapshotmodal\" href=\"#\" hx-get=\"" + BRT.SecureUrl("/at2ajax?action=getchurch&id=" + record_church.Id) +"\" hx-target=\"#snapbody\"  hx-indicator=\"#modalindicator\" class=\"me-1 text-dark\">")
+                                                    @* Church SHORT Name *@
+                                                    if (!record_church.IsDBNull("Name")) {
+                                                        <span>
+                                                            @record_church["Name"]
+                                                        </span>
+                                                    }
+                                            
+                                                    @* District *@
+                                                    if (!record_church.IsDBNull("District")) {
+                                                        <span>
+                                                            @foreach (EngineRecord record_church_district in record_church.GetRecordList("District")) {
+                                                                <span>
+                                                                    @* District Name *@
+                                                                    @if (!record_church_district.IsDBNull("Name")) {
+                                                                        <span>
+                                                                                - @record_church_district["Name"]
+                                                                        </span>
+                                                                    }
+                                                                </span>
+                                                        }
+                                                        </span>
+                                                        @BRT.Raw("</a>")
+                                                    }
+                                                }
+                                            }
+                                            
+                                            @if (!record_people_appointments.IsDBNull("District")) {
+                                                <small class="text-muted">District: </small>
+                                                foreach (EngineRecord record_district in record_people_appointments.GetRecordList("District")) {
+                                                    @* District Name *@
+                                                    if (!record_district.IsDBNull("Name")) {
+                                                        <span>
+                                                            @record_district["Name"]
+                                                        </span>
+                                                    }
+                                                }
+                                            }
+                                            
+                                            @if (!record_people_appointments.IsDBNull("ExtensionMinistry")) {
+                                                <small class="text-muted">Ext Min: </small>
+                                                <span>@record_people_appointments["ExtensionMinistry"]</span>
+                                            }
+                                            
+                                            @if (!record_people_appointments.IsDBNull("ExtensionMinistryPositions")) {
+                                                <small class="text-muted">Non-church: </small>
+                                                foreach (CategoryFieldItem cat in record_people_appointments.GetCategory("ExtensionMinistryPositions")) {
+                                                    <span>
+                                                        @cat.Label
+                                                    </span>
+                                                }
+                                            }
+                                            </div>
+                                        }
+                                    }
+                                }
                             }
                         }
                     </td>
@@ -3630,11 +3906,6 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
                             @record["HousingAllowance"]
                         }
                     </td>
-                    
-                    
-                    
-                    
-                    
                 </tr>
             }
             </tbody>
@@ -3720,7 +3991,7 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         <div class="col-8">
             <div class="card card-body">
                 <h2>Step 1: Make new and end old appointments</h2>
-                <p>When you're DONE with the appointment-making process and ready to move them into the live database, you want to create new and end existing. <a href="https://fakeumc-www.brtsite.com/appointmenttool/appointments" target="_blank">Use the &quot;Create/End Appointments&quot; from the Appointment Tool 1</a> to do that</p>
+                <p>When you're DONE with the appointment-making process and ready to move them into the live database, you want to create new and end existing. <a href="/appointmenttool/appointments" target="_blank">Use the &quot;Create/End Appointments&quot; from the Appointment Tool 1</a> to do that</p>
                 <div><iframe src="https://player.vimeo.com/video/677305860?h=576e29b1d1&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" width="300" height="169" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="Bulk create/end projected"></iframe></div>
                 <h2>Step 2: Clean up</h2>
                 <p>There IS a way to bulk update statuses in the version 1 but you can just as easily make those updates in the console. You'll want to do this either at the end of this appointment-making process. OR WHAT MIGHT BE BETTER, is to leave them hanging around until BEFORE the next one. You'll want to</p>
@@ -3733,6 +4004,220 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         </div>
     </div>
 </div>
+
+}
+
+@helper bigdownload(){
+
+    @BRT.Lister(tableId: "Contacts", viewId: "AppointmentToolPeople",
+    savedFilters: new[] {"AllPeople"},
+    fields: new[] {"PrimaryImage","FirstName","PreferredName","MiddleName","LastName","ClergyOrLay","MoveStatusPerson","MoveStatusChurch","MoveStatus","MoveStatusNotes","AppointmentFit","PeopleRank","PotentialTier","KeyCometencies","ClergySpouseTags","TheologicalPreferences","ClergyStatus"},
+    template:
+@<div>
+    @if (item.Count > 0) {
+        <table class="table" id="tblAppointmentToolPeople">
+            <thead>
+                <tr>
+                    <th>Primary Image</th>
+                    <th>First Name</th>
+                    <th>Preferred First Name</th>
+                    <th>Middle Name</th>
+                    <th>Last Name</th>
+                    <th>Clergy or Lay</th>
+                    <th>Pastor's Move Preference</th>
+                    <th>Church's Move Preference</th>
+                    <th>Cabinet Move Status</th>
+                    <th>Move Status Notes</th>
+                    <th>Appointment Fit</th>
+                    <th>Clergy Performance Tier</th>
+                    <th>Potential Tier</th>
+                    <th>Key Competencies</th>
+                    <th>Spouse of a Clergy Tags</th>
+                    <th>Theological Preferences</th>
+                    <th>Current Clergy Status/Conference Relationship</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (EngineRecord record in item) {
+                <tr>
+                    @* Primary Image *@
+                    <td>
+                        @if (!record.IsDBNull("PrimaryImage")) {
+                            foreach (FileFieldItem file in record.GetFiles("PrimaryImage")) {
+                                <div>
+                                    @if (file.ContentType.StartsWith("image/")) {
+                                        <img src="@(file.Url)?width=200&height=200"/>
+                                    } else {
+                                        <a href="@file.Url">@(String.IsNullOrEmpty(file.Title) ? file.Filename : file.Title)</a>
+                                    }
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* First Name *@
+                    <td>
+                        @if (!record.IsDBNull("FirstName")) {
+                            @record["FirstName"]
+                        }
+                    </td>
+
+                    @* Preferred First Name *@
+                    <td>
+                        @if (!record.IsDBNull("PreferredName")) {
+                            @record["PreferredName"]
+                        }
+                    </td>
+
+                    @* Middle Name *@
+                    <td>
+                        @if (!record.IsDBNull("MiddleName")) {
+                            @record["MiddleName"]
+                        }
+                    </td>
+
+                    @* Last Name *@
+                    <td>
+                        @if (!record.IsDBNull("LastName")) {
+                            @record["LastName"]
+                        }
+                    </td>
+
+                    @* Clergy or Lay *@
+                    <td>
+                        @if (!record.IsDBNull("ClergyOrLay")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("ClergyOrLay")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Pastor's Move Preference *@
+                    <td>
+                        @if (!record.IsDBNull("MoveStatusPerson")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("MoveStatusPerson")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Church's Move Preference *@
+                    <td>
+                        @if (!record.IsDBNull("MoveStatusChurch")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("MoveStatusChurch")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Cabinet Move Status *@
+                    <td>
+                        @if (!record.IsDBNull("MoveStatus")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("MoveStatus")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Move Status Notes *@
+                    <td>
+                        @if (!record.IsDBNull("MoveStatusNotes")) {
+                            @record["MoveStatusNotes"]
+                        }
+                    </td>
+
+                    @* Appointment Fit *@
+                    <td>
+                        @if (!record.IsDBNull("AppointmentFit")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("AppointmentFit")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Clergy Performance Tier *@
+                    <td>
+                        @if (!record.IsDBNull("PeopleRank")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("PeopleRank")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Potential Tier *@
+                    <td>
+                        @if (!record.IsDBNull("PotentialTier")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("PotentialTier")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Key Competencies *@
+                    <td>
+                        @if (!record.IsDBNull("KeyCometencies")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("KeyCometencies")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Spouse of a Clergy Tags *@
+                    <td>
+                        @if (!record.IsDBNull("ClergySpouseTags")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("ClergySpouseTags")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Theological Preferences *@
+                    <td>
+                        @if (!record.IsDBNull("TheologicalPreferences")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("TheologicalPreferences")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+
+                    @* Current Clergy Status/Conference Relationship *@
+                    <td>
+                        @if (!record.IsDBNull("ClergyStatus")) {
+                            foreach (CategoryFieldItem cat in record.GetCategory("ClergyStatus")) {
+                                <div>
+                                    @cat.Label
+                                </div>
+                            }
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+        }
+
+</div>
+)
 
 }
 
@@ -3772,10 +4257,15 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         bool isCurrentSalary = false;
         decimal TotalSalary  = 0;
         foreach(EngineRecord record_salary in salaries) {
-            if(record_salary.HasField("EndDate") && !record_salary.IsDBNull("EndDate") && record_salary.GetDateTime("EndDate") > DateTime.Now) { // checking if it has an end date and if so is it in the future... Else...
+            if((record_salary.HasField("PubDate") && !record_salary.IsDBNull("PubDate") && record_salary.GetDateTime("PubDate") <= DateTime.Now) && (record_salary.HasField("EndDate") && !record_salary.IsDBNull("EndDate") && record_salary.GetDateTime("EndDate") > DateTime.Now)) { // checking if it has an end date and if so is it in the future... Else...
                 isCurrentSalary = true;
             }
-            else if (record_salary.GetDateTime("PubDate") >= Convert.ToDateTime("01/01/" + DateTime.Now.Year.ToString()) && record_salary.GetDateTime("PubDate") <= Convert.ToDateTime("12/31/" + DateTime.Now.Year.ToString())){
+            //else if ((record_salary.GetDateTime("PubDate") >= Convert.ToDateTime("01/01/" + DateTime.Now.Year.ToString()) && record_salary.GetDateTime("PubDate") <= Convert.ToDateTime("12/31/" + DateTime.Now.Year.ToString())) || (Site.HasField("NullEndDateSalariesAreCurrent") && !Site.IsDBNull("NullEndDateSalariesAreCurrent") && Site.GetBoolean("NullEndDateSalariesAreCurrent")==true   && record_salary.HasField("EndDate") && record_salary.IsDBNull("EndDate")                  )         ){
+                // Above. The record is current if the start date is in this current year OR if the conference has checked the NullEndDateSalariesAreCurrent box to be true. Meaning, salaries records with no end date are considered current.
+                //isCurrentSalary = true;
+            //}
+            else if ((record_salary.HasField("PubDate") && !record_salary.IsDBNull("PubDate") && record_salary.GetDateTime("PubDate") <= DateTime.Now) && (Site.HasField("NullEndDateSalariesAreCurrent") && !Site.IsDBNull("NullEndDateSalariesAreCurrent") && Site.GetBoolean("NullEndDateSalariesAreCurrent")==true   && record_salary.HasField("EndDate") && record_salary.IsDBNull("EndDate"))){
+                // Above. The record is current if the start date is in this current year OR if the conference has checked the NullEndDateSalariesAreCurrent box to be true. Meaning, salaries records with no end date are considered current.
                 isCurrentSalary = true;
             }
             if(isCurrentSalary){
@@ -3811,6 +4301,20 @@ if(item.Count>0){ // we load jQuery datatable to handle soring and some hack-ass
         }
         else{
             return false; 
+        }
+    }
+    
+    public bool CompOptionCheck(string option, FieldMeta meta){ // There is an attribute on fields called ClergyComp-Options and it can have a comma delimited string of options for the report
+        if(meta.Custom.ContainsKey("ClergyComp-Options")){
+            foreach (string x in meta.Custom["ClergyComp-Options"].Split(',')){
+                if(option.Contains(x)){
+                    return true;
+                }
+            }
+            return false;
+        }
+        else {
+            return false;    
         }
     }
     
