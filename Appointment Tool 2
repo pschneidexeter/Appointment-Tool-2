@@ -36,7 +36,7 @@
       <!-- Required meta tags -->
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@("@")5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@("@")5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
       <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
       <link rel="stylesheet" type="text/css" href="//cdn.datatables.net/1.10.21/css/jquery.dataTables.min.css"/>
       <script type="text/javascript" src="//cdn.datatables.net/1.10.21/js/jquery.dataTables.min.js"></script>
@@ -46,12 +46,13 @@
         <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
         <script type="text/javascript" src="//cdn.datatables.net/buttons/1.6.2/js/buttons.html5.min.js"></script>
         <script type="text/javascript" src="//cdn.datatables.net/buttons/1.6.2/js/buttons.print.min.js"></script>
-      <script src="https://unpkg.com/htmx.org@("@")1.6.1"></script>
-      <script src="https://unpkg.com/hyperscript.org@("@")0.9.4"></script>
+      <script src="https://unpkg.com/htmx.org@("@")1.8.4"></script>
+      <script src="https://unpkg.com/hyperscript.org@("@")0.9.7"></script>
       <script src="https://brt-email.brtapp.com/files/central_assets/iframeresizer.min.js"></script>
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
       
-      <script src="https://cdn.jsdelivr.net/npm/bootstrap@("@")5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@("@")1.10.2/font/bootstrap-icons.css">
+      
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@("@")5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
       
       <title>@Title</title>
       
@@ -154,11 +155,11 @@
                 white-space: nowrap;
             }
             
-            .showcap
-            {
-                max-height:300px;
-                overflow-y:scroll;
-            }
+            /*.showcap*/
+            /*{*/
+            /*    max-height:300px;*/
+            /*    overflow-y:scroll;*/
+            /*}*/
             
             @if(PageData["Access"]=="ReadOnly"){
                 @BRT.Raw(".editlink{display:none;")
@@ -178,7 +179,7 @@
         </style>
 
    </head>
-   <body class="bg-light">
+   <body class="bg-light" hx-ext="preload">
        
     @if(BRT.RenderContext.IsDesign) {
         <p>Hi Content Manager Person :-)</p>
@@ -207,17 +208,19 @@
             <span class="align-middle"><img src="https://brt.brtapp.com/files/central_assets/cross_flame.png?height=24" class="align-middle"/> <span class="align-middle">AT home</span></span>
         </a>
         
-        <span class="p-1 border rounded align-middle"><span class="text-muted">PEOPLE<i class="bi bi-arrow-right"></i></span>
-            <a class="ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=noretired")" hx-target="#renderdiv" hx-indicator="#indicator">Main</a>
-            <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">w/retired</a>
-            <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=needsmove")" hx-target="#renderdiv" hx-indicator="#indicator">Move status</a>
-            <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedunresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Affected</a>
-            <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=resolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved status</a>
-            <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved affected</a>
-            @*<a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=megapeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">Mega</a>*@
-        </span>
+        <span class="text-muted">PEOPLE<i class="bi bi-arrow-right"></i></span>
+        <a class="ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=noretired")" hx-target="#renderdiv" hx-indicator="#indicator">Main</a>
+        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">w/retired</a>
+        <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=needsmove")" hx-target="#renderdiv" hx-indicator="#indicator">Move status</a>
+        <a class="ms-2 text-danger text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedunresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Affected</a>
+        <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=resolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved status</a>
+        <a class="ms-2 text-success text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=affectedresolved")" hx-target="#renderdiv" hx-indicator="#indicator">Resolved affected</a>
+        @*<a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=megapeople&view=all")" hx-target="#renderdiv" hx-indicator="#indicator">Mega</a>*@
+        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=getpeople&view=bigdownload")" hx-target="#renderdiv" hx-indicator="#indicator">w/metrics</a>
         
-        <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=churcheswithstatus")" hx-target="#renderdiv" hx-indicator="#indicator">Churches</a>
+        <span class="mx-2 text-secondary">|</span>
+        
+        <a class="text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=churcheswithstatus")" hx-target="#renderdiv" hx-indicator="#indicator">Churches</a>
         
         <a class="ms-2 ms-0 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=currentappointments")" hx-target="#renderdiv" hx-indicator="#indicator">Current appts</a>
         <a class="ms-2 text-dark text-decoration-none" href="#" hx-get="@BRT.SecureUrl("/at2ajax?action=pendingsimple")" hx-target="#renderdiv" hx-indicator="#indicator">Projected</a>
@@ -385,10 +388,13 @@
                     <div class="col-6">
                         <div class="card card-body text-center">
                             
-                            <h4>Instructions</h4>
+                            <h4>Walkthrough (made 2/14/22)</h4>
                             
-                            <div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/677283173?h=4117e26732&amp;badge=0&amp;autopause=0&amp;player_id=0&amp;app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Appointment Tool 2 Walkthrough 2/14/22"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
-                        <p class="mt-4"><a href="https://help.brickriver.com/article/313-appointment-tool-2-documentation" target="_blank">Documentation in our KB</a></p>
+                            <div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/677283173?h=4117e26732&badge=0&autopause=0&player_id=0&app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Appointment Tool 2 Walkthrough 2/14/22"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
+                            <h4>Updates since orginal (posted 1/3/23)</h4>
+                            <div style="padding:56.25% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/786042765?h=dfe6bbcf21&badge=0&autopause=0&player_id=0&app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Changes since original"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
+                            
+                            <p class="mt-4"><a href="https://help.brickriver.com/article/313-appointment-tool-2-documentation" target="_blank">Documentation in our KB</a></p>
                         </div>
                     </div>
                 </div>
